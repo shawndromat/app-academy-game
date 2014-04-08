@@ -1,14 +1,24 @@
+require 'colorize'
+require "highline/system_extensions"
+include HighLine::SystemExtensions
+
 class Tile
 
   attr_reader :mark, :flagged, :revealed, :position
 
   def initialize(position)
     @position = position
-    @bombed = (true if [1,2,3,4,5,6].sample == 1) || false
-    @flagged = false
-    @revealed = false
-    @mark = "*"
+    @bombed, @flagged, @revealed, @cursor = false, false, false, false
+    @mark = chars[:hidden]
     @neighbors = []
+  end
+  
+  def chars
+    { :hidden => "\u258b".encode('utf-8'),
+      :flag => "\u2691".encode('utf-8').blue,
+      :revealed => "\u2581".encode('utf-8'),
+      :bomb => "\u2573".encode('utf-8')
+    }
   end
 
   def set_neighbors(board)
@@ -50,10 +60,10 @@ class Tile
   end
 
   def toggle_flag
-    if @mark == "F"
-      @mark = "*"
+    if @mark == chars[:flag]
+      @mark = chars[:hidden]
     else
-      @mark = "F"
+      @mark = chars[:flag]
     end
     @flagged = !@flagged
   end
@@ -64,10 +74,10 @@ class Tile
 
     @revealed = true
     if bombed?
-      @mark = "B"
+      @mark = chars[:bomb]
       return
     elsif neighbor_bomb_count == 0
-      @mark = "_"
+      @mark = chars[:revealed]
       @neighbors.each do |neighbor|
         neighbor.reveal unless neighbor.revealed? || neighbor.flagged?
       end
@@ -78,6 +88,10 @@ class Tile
 
   def neighbor_bomb_count
     @neighbors.select { |neighbor| neighbor.bombed? }.count
+  end
+  
+  def set_bomb
+    @bombed = true
   end
 
   def bombed?
@@ -91,6 +105,15 @@ class Tile
   def revealed?
     @revealed
   end
+  
+  def set_cursor
+    puts "Set!"
+    @mark = @mark.blink
+  end
+  
+  def unset_cursor
+    @mark.uncolorize
+  end
 
 end
 
@@ -103,6 +126,7 @@ class Board
     @tiles = Array.new(@height) { Array.new(@width) }
     generate_tiles
     set_tile_neighbors
+    generate_bombs
   end
 
   def [](pos)
@@ -140,18 +164,44 @@ class Board
     end
     nil
   end
+  
+  def generate_bombs
+     total_bombs = (@height * @width * 0.15).round
+     bomb_placements = []
+     while bomb_placements.count < total_bombs
+       pos = [rand(@height), rand(@width)]
+       bomb_placements << pos unless bomb_placements.include?(pos)
+     end
+     set_bombs(bomb_placements)
+     total_bombs
+   end
+
+   def set_bombs(placements)
+     placements.each do |pos|
+       @tiles[pos.first][pos.last].set_bomb
+     end
+   end
 end
 
 class MineSweeper
 
   def initialize
     @board = Board.new
+    @cursor = @board[[0,0]]
   end
 
   def play
     until done?
+      @cursor.set_cursor
       @board.display
-      move, pos = get_user_input
+      move = get_character
+      p move
+      pos = []
+      pos[0] = get_character
+      pos[1] = get_character
+      p pos
+      # puts c
+      # move, pos = get_user_input
       update_space(move, pos)
     end
     display_results(win?)
