@@ -1,4 +1,5 @@
 require 'colorize'
+require 'io/console'
 
 class Tile
 
@@ -10,12 +11,12 @@ class Tile
     @mark = chars[:hidden]
     @neighbors = []
   end
-  
+
   def chars
     { :hidden => "\u258b".encode('utf-8'),
       :flag => "\u2691".encode('utf-8').blue,
       :revealed => "\u2581".encode('utf-8'),
-      :bomb => "\u2573".encode('utf-8')
+      :bomb => "\u2573".encode('utf-8').red
     }
   end
 
@@ -58,12 +59,12 @@ class Tile
   end
 
   def toggle_flag
-    if @mark == chars[:flag]
-      @mark = chars[:hidden]
-    else
-      @mark = chars[:flag]
-    end
     @flagged = !@flagged
+    if @flagged
+      @mark = chars[:flag]
+    else
+      @mark = chars[:hidden]
+    end
   end
 
   def reveal
@@ -80,14 +81,14 @@ class Tile
         neighbor.reveal unless neighbor.revealed? || neighbor.flagged?
       end
     else
-      @mark = neighbor_bomb_count
+      @mark = neighbor_bomb_count.to_s
     end
   end
 
   def neighbor_bomb_count
     @neighbors.select { |neighbor| neighbor.bombed? }.count
   end
-  
+
   def set_bomb
     @bombed = true
   end
@@ -103,14 +104,13 @@ class Tile
   def revealed?
     @revealed
   end
-  
+
   def set_cursor
-    puts "Set!"
     @mark = @mark.blink
   end
-  
+
   def unset_cursor
-    @mark.uncolorize
+    @mark = @mark.uncolorize
   end
 
 end
@@ -187,6 +187,7 @@ class MineSweeper
   def initialize
     @board = Board.new
     @cursor = @board[[0,0]]
+    @done = false
   end
 
   def play
@@ -202,10 +203,12 @@ class MineSweeper
 #       p pos
 #       # puts c
 #       # move, pos = get_user_input
-
-      @board.display
-      move, pos = get_user_input
-      update_space(move, pos)
+      #
+      # @board.display
+      @cursor.unset_cursor
+      move = $stdin.getch
+      # move, pos = get_user_input
+      update_space(move, @cursor)
     end
     display_results(win?)
   end
@@ -222,13 +225,37 @@ class MineSweeper
   end
 
   def update_space(move, pos)
-    @board[pos].toggle_flag if move == "F"
-    @board[pos].reveal if move == "R"
+    @done = true if move.upcase == "Q"
+    @cursor.toggle_flag if move.upcase == "F"
+    @cursor.reveal if move.upcase == "R"
+
+    move_cursor(:up) if move.upcase == "W"
+    move_cursor(:left) if move.upcase == "A"
+    move_cursor(:down) if move.upcase == "S"
+    move_cursor(:right) if move.upcase == "D"
+  end
+
+  def move_cursor(direction)
+    first, last = @cursor.position
+    target = case direction
+      when :up
+        [first - 1, last]
+      when :left
+        [first, last - 1]
+      when :down
+        [first + 1, last]
+      when :right
+        [first, last + 1]
+      end
+      # @board[[first,last]].unset_cursor
+      @cursor = @board[target] if @cursor.on_board?(@board, target)
   end
 
   def win?
     all_tiles = @board.tiles.flatten
-    all_tiles.all? { |tile| tile.revealed? && !tile.bombed? }
+    num_revealed = all_tiles.select{ |tile| tile.revealed? }.count
+    num_not_bombed = all_tiles.select{ |tile| !tile.bombed? }.count
+    num_revealed == num_not_bombed
   end
 
   def lose?
@@ -237,7 +264,7 @@ class MineSweeper
   end
 
   def done?
-    win? || lose?
+    win? || lose? || @done
   end
 
   def display_results(winner)
