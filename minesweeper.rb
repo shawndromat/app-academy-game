@@ -26,7 +26,7 @@ class Tile
 
     positions.each do |pos|
       if on_board?(board, pos)
-        neighbor = board.tiles[pos.first][pos.last]
+        neighbor = board[pos]
         @neighbors << neighbor unless @neighbors.include?(neighbor)
       end
     end
@@ -60,6 +60,7 @@ class Tile
     else
       @mark = "F"
     end
+    puts "flagged!"
     @flagged = !@flagged
   end
 
@@ -106,11 +107,18 @@ class Board
   def set_tile_neighbors
     @tiles.each_index do |row|
       @tiles.each_index do |col|
-        self.tiles[row][col].set_neighbors(self)
+        self[[row,col]].set_neighbors(self)
       end
     end
   end
 
+  def [](pos)
+    first, last = pos
+    @tiles[first][last]
+  end
+
+  def []=(pos)
+  end
   # def generate_bombs
  #    total_bombs = (@height * @width * 0.15).round
  #    bomb_placements = []
@@ -129,7 +137,7 @@ class Board
   # end
 
   def display
-    system("clear")
+    # system("clear")
     display_board = []
     puts "   #{(0...@width).to_a.join(" ")}"
     @tiles.each_with_index do |rows, first|
@@ -142,66 +150,21 @@ class Board
     nil
   end
 
-  # def get_symbol(pos)
- #    # print pos
- #    tile = @tiles[pos.first][pos.last]
- #    return "F" if tile.flagged
- #    if tile.revealed
- #      bomb_count = neighbor_bomb_count(pos)
- #      return "B" if tile.bombed?
- #      if bomb_count == 0
- #        "_"
- #      else
- #        bomb_count.to_s
- #      end
- #    else
- #      # return "B" if tile.bombed?
- #      "*"
- #    end
- #  end
-
-  def neighbors(pos)
-    first, last = pos
-    neighbors_pos = [[first - 1, last - 1],
-                     [first - 1, last],
-                     [first - 1, last + 1],
-                     [first, last - 1],
-                     [first, last + 1],
-                     [first + 1, last - 1],
-                     [first + 1, last],
-                     [first + 1, last + 1]
-                    ]
-    neighbors_pos.select { |position| on_board?(position) }
-  end
-
-  def on_board?(pos)
-    (0...@height).cover?(pos.first) && (0...@width).cover?(pos.last)
-  end
-
-  def neighbor_bomb_count(pos)
-    neighbors(pos).select{ |pos| @tiles[pos.first][pos.last].bombed? }.count
-  end
-
-  def reveal(pos)
-    tile = @tiles[pos.first][pos.last]
-    tile.set_revealed unless tile.flagged || tile.revealed
-    if tile.revealed && tile.bombed?
-      nil
-    elsif neighbor_bomb_count(pos) == 0
-      neighbors(pos).each do |neighbor|
-        neighboring_tile = @tiles[neighbor.first][neighbor.last]
-        unless neighboring_tile.revealed || neighboring_tile.flagged
-          reveal(neighbor)
-        end
-      end
-      get_symbol(pos)
-    end
-  end
-
-  def flag(pos)
-    tile = @tiles[pos.first][pos.last]
-    tile.set_flagged unless tile.revealed
-  end
+  # def reveal(pos)
+  #   tile = @tiles[pos.first][pos.last]
+  #   tile.set_revealed unless tile.flagged || tile.revealed
+  #   if tile.revealed && tile.bombed?
+  #     nil
+  #   elsif neighbor_bomb_count(pos) == 0
+  #     neighbors(pos).each do |neighbor|
+  #       neighboring_tile = @tiles[neighbor.first][neighbor.last]
+  #       unless neighboring_tile.revealed || neighboring_tile.flagged
+  #         reveal(neighbor)
+  #       end
+  #     end
+  #     get_symbol(pos)
+  #   end
+  # end
 
 end
 
@@ -215,7 +178,7 @@ class MineSweeper
     until done?
       @board.display
       move, pos = get_user_input
-      update_space(board, pos, move)
+      update_space(move, pos)
     end
     display_results(win?)
   end
@@ -239,15 +202,15 @@ class MineSweeper
   end
 
   def parse_user_input(input)
-    input_array = input.split(" ")
-    move = input_array.first.upcase
-    coords = input_array.last.split(",").map(&:to_i)
-    [move, coords]
+    move, coords = input.split(" ")
+    [move.upcase, coords.split(",").map(&:to_i)]
   end
 
   def update_space(move, pos)
-    @board.flag(pos) if move == "F"
-    @board.reveal(pos) if move == "R"
+    first, last = pos
+    p @board[pos]
+    @board[pos].toggle_flag if move == "F"
+    # @board.reveal(pos) if move == "R"
   end
 
   def win?
