@@ -59,7 +59,10 @@ class Tile
   end
 
   def reveal
-    @revealed = true unless flagged?
+    return self if flagged?
+    return self if revealed?
+
+    @revealed = true
     if bombed?
       @mark = "B"
       return
