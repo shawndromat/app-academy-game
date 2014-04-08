@@ -18,7 +18,7 @@ class Tile
   end
 
   def set_revealed
-    @revealed = !@revealed
+    @revealed = true
   end
 
   def set_mark(mark)
@@ -32,24 +32,25 @@ class Tile
 end
 
 class Board
+  attr_reader :bomb_count
   attr_accessor :tiles
 
   def initialize(height = 15, width = 9)
     @height = height
     @width = width
     @tiles = Array.new(@height) { Array.new(@width) { Tile.new } }
+    @bomb_count = self.generate_bombs
   end
 
   def generate_bombs
     total_bombs = (@height * @width * 0.15) / 1
     bomb_placements = []
     while bomb_placements.count < total_bombs
-      x = rand(@width)
-      y = rand(@height)
-      loc = [y, x]
+      loc = [rand(@height), rand(@width)]
       bomb_placements << loc unless bomb_placements.include?(loc)
     end
     set_bombs(bomb_placements)
+    total_bombs
   end
 
   def set_bombs(placements)
@@ -60,9 +61,13 @@ class Board
 
   def display
     display_board = []
-    @tiles.each_with_index do |rows, pos_y|
-      rows.each_index do |pos_x|
-        print get_symbol([pos_y, pos_x])
+    print "   "
+    (0...@width).each { |num| print "#{num} " }
+    puts
+    @tiles.each_with_index do |rows, first|
+      print "%02d " % first
+      rows.each_index do |last|
+        print "#{get_symbol([first, last])} "
       end
       puts
     end
@@ -75,32 +80,34 @@ class Board
     return "F" if tile.flagged
     if tile.revealed
       bomb_count = neighbor_bomb_count(pos)
+      return "B" if tile.bombed?
       if bomb_count == 0
         "_"
       else
         bomb_count.to_s
       end
     else
+      # return "B" if tile.bombed?
       "*"
     end
   end
 
   def neighbors(pos)
-    y, x = pos
-    neighbors_pos = [[y - 1, x - 1],
-                     [y - 1, x],
-                     [y - 1, x + 1],
-                     [y, x - 1],
-                     [y, x + 1],
-                     [y + 1, x - 1],
-                     [y + 1, x],
-                     [y + 1, x + 1]
+    first, last = pos
+    neighbors_pos = [[first - 1, last - 1],
+                     [first - 1, last],
+                     [first - 1, last + 1],
+                     [first, last - 1],
+                     [first, last + 1],
+                     [first + 1, last - 1],
+                     [first + 1, last],
+                     [first + 1, last + 1]
                     ]
     neighbors_pos.select { |position| on_board?(position) }
   end
 
   def on_board?(pos)
-    (0...@width).cover?(pos.first) && (0...@height).cover?(pos.last)
+    (0...@height).cover?(pos.first) && (0...@width).cover?(pos.last)
   end
 
   def neighbor_bomb_count(pos)
@@ -109,11 +116,17 @@ class Board
 
   def reveal(pos)
     tile = @tiles[pos.first][pos.last]
-    tile.set_revealed
+    tile.set_revealed unless tile.flagged || tile.revealed
     if tile.revealed && tile.bombed?
       nil
-    else
-      tile.get_symbol(pos)
+    elsif neighbor_bomb_count(pos) == 0
+      neighbors(pos).each do |neighbor|
+        neighboring_tile = @tiles[neighbor.first][neighbor.last]
+        unless neighboring_tile.revealed || neighboring_tile.flagged
+          reveal(neighbor)
+        end
+      end
+      get_symbol(pos)
     end
   end
 
@@ -130,7 +143,13 @@ class MineSweeper
   end
 
   def play
-    win?
+    until done?
+      @board.display
+      move, pos = get_user_input
+      update_space(move, pos)
+    end
+    print "You win!"
+
   end
 
   def win?
@@ -141,6 +160,27 @@ class MineSweeper
       end
     end
     hidden_tile_count == board.bomb_count
+  end
+
+  def get_user_input
+    puts "Enter your move (R for reveal, F for flag) and the coordinates"
+    puts "For example: 'R 3,2'"
+    parse_user_input(gets.chomp)
+  end
+
+  def parse_user_input(input)
+    input_array = input.split(" ")
+    move = input_array.first
+    coords = input_array.last.split(",").map(&:to_i)
+    [move, coords]
+  end
+
+  def update_space(move, pos)
+    board.flag(pos) if move == "F"
+    board.reveal(pos) if move == "R"
+  end
+
+  def lose?
   end
 end
 
