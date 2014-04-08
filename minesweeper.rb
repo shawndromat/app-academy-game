@@ -1,6 +1,4 @@
 require 'colorize'
-require "highline/system_extensions"
-include HighLine::SystemExtensions
 
 class Tile
 
@@ -164,7 +162,7 @@ class Board
     end
     nil
   end
-  
+
   def generate_bombs
      total_bombs = (@height * @width * 0.15).round
      bomb_placements = []
@@ -181,6 +179,7 @@ class Board
        @tiles[pos.first][pos.last].set_bomb
      end
    end
+
 end
 
 class MineSweeper
@@ -192,16 +191,20 @@ class MineSweeper
 
   def play
     until done?
+
       @cursor.set_cursor
       @board.display
-      move = get_character
-      p move
-      pos = []
-      pos[0] = get_character
-      pos[1] = get_character
-      p pos
-      # puts c
-      # move, pos = get_user_input
+      # move = get_character
+#       p move
+#       pos = []
+#       pos[0] = get_character
+#       pos[1] = get_character
+#       p pos
+#       # puts c
+#       # move, pos = get_user_input
+
+      @board.display
+      move, pos = get_user_input
       update_space(move, pos)
     end
     display_results(win?)
