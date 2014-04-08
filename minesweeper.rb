@@ -1,24 +1,66 @@
 class Tile
 
-  attr_reader :mark, :flagged, :revealed
+  attr_reader :mark, :flagged, :revealed, :position
 
-  def initialize()
-    @bomb = false
+  def initialize(position)
+    @position = position
+    @bombed = false
     @flagged = false
     @revealed = false
     @mark = "*"
+    @neighbors = []
+  end
+
+  def set_neighbors(board)
+    first, last = @position
+    positions = [
+      [first - 1, last - 1],
+      [first - 1, last],
+      [first - 1, last + 1],
+      [first, last - 1],
+      [first, last + 1],
+      [first + 1, last - 1],
+      [first + 1, last],
+      [first + 1, last + 1]
+    ]
+
+    positions.each do |pos|
+      if on_board?(board, pos)
+        neighbor = board.tiles[pos.first][pos.last]
+        @neighbors << neighbor unless @neighbors.include?(neighbor)
+      end
+    end
+  end
+
+  def on_board?(board, position)
+    first, last = position
+    (0...board.height).cover?(first) && (0...board.width).cover?(last)
+  end
+
+  def inspect
+    "pos: #{@position}, b: #{@bombed}, f: #{@flagged}, r: #{@revealed}, neighbors: #{self.inspect_neighbors}"
+  end
+
+  def inspect_neighbors
+    return "[]" if @neighbors.length == 0
+    neighbor_pos = []
+    @neighbors.each do |neighbor|
+      neighbor_pos << neighbor.position
+    end
+    neighbor_pos
   end
 
   def set_bomb
-    @bomb = !@bomb
+    @bombed = true
   end
 
-  def set_flagged
+  def toggle_flag
     @flagged = !@flagged
   end
 
-  def set_revealed
+  def reveal
     @revealed = true
+    # recursive reveal
   end
 
   def set_mark(mark)
@@ -26,20 +68,46 @@ class Tile
   end
 
   def bombed?
-    @bomb
+    @bombed
+  end
+
+  def flagged?
+    @flagged
+  end
+
+  def revealed?
+    @revealed
   end
 
 end
 
 class Board
-  attr_reader :bomb_count
-  attr_accessor :tiles
+  attr_reader :bomb_count, :tiles, :height, :width
+  # attr_accessor
 
-  def initialize(height = 15, width = 9)
+  def initialize(height = 9, width = 9)
     @height = height
     @width = width
-    @tiles = Array.new(@height) { Array.new(@width) { Tile.new } }
-    @bomb_count = self.generate_bombs
+    @tiles = Array.new(@height) { Array.new(@width) }
+    generate_tiles
+    set_tile_neighbors
+    # @bomb_count = self.generate_bombs
+  end
+
+  def generate_tiles
+    @tiles.each_with_index do |row, i|
+      row.each_index do |j|
+        @tiles[i][j] = Tile.new([i,j])
+      end
+    end
+  end
+
+  def set_tile_neighbors
+    @tiles.each_index do |row|
+      @tiles.each_index do |col|
+        self.tiles[row][col].set_neighbors(self)
+      end
+    end
   end
 
   def generate_bombs
