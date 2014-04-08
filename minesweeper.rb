@@ -43,7 +43,7 @@ class Board
   end
 
   def generate_bombs
-    total_bombs = (@height * @width * 0.15) / 1
+    total_bombs = (@height * @width * 0.15).round
     bomb_placements = []
     while bomb_placements.count < total_bombs
       loc = [rand(@height), rand(@width)]
@@ -61,6 +61,7 @@ class Board
 
   def display
     display_board = []
+    system("clear")
     print "   "
     (0...@width).each { |num| print "#{num} " }
     puts
@@ -131,7 +132,8 @@ class Board
   end
 
   def flag(pos)
-    @tiles[pos.first][pos.last].set_flagged
+    tile = @tiles[pos.first][pos.last]
+    tile.set_flagged unless tile.revealed
   end
 
 end
@@ -148,8 +150,19 @@ class MineSweeper
       move, pos = get_user_input
       update_space(move, pos)
     end
-    print "You win!"
+    display_results(win?)
+  end
 
+  def display_results(winner)
+    end_message = "You're a WINNER!"
+    unless winner
+      end_message = "You're a LOSER!"
+      @board.tiles.each do |rows|
+        rows.each { |tile| tile.set_revealed if tile.bombed?}
+      end
+    end
+    @board.display
+    puts end_message
   end
 
   def win?
@@ -159,7 +172,20 @@ class MineSweeper
         hidden_tile_count += 1 unless tile.revealed
       end
     end
-    hidden_tile_count == board.bomb_count
+    hidden_tile_count == @board.bomb_count
+  end
+
+  def lose?
+    @board.tiles.each do |rows|
+      rows.each do |tile|
+        return true if tile.bombed? and tile.revealed
+      end
+    end
+    false
+  end
+
+  def done?
+    win? || lose?
   end
 
   def get_user_input
@@ -170,25 +196,19 @@ class MineSweeper
 
   def parse_user_input(input)
     input_array = input.split(" ")
-    move = input_array.first
+    move = input_array.first.upcase
     coords = input_array.last.split(",").map(&:to_i)
     [move, coords]
   end
 
   def update_space(move, pos)
-    board.flag(pos) if move == "F"
-    board.reveal(pos) if move == "R"
-  end
-
-  def lose?
+    @board.flag(pos) if move == "F"
+    @board.reveal(pos) if move == "R"
   end
 end
 
 
-
-# x = Board.new
-# p x.on_board?([-1, 1])
-# p x.on_board?([1,1])
-#
-# p x.neighbors([1,1])
-# p x.neighbors([0,0])
+if __FILE__ == $PROGRAM_NAME
+  game = MineSweeper.new
+  game.play
+end
