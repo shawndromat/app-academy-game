@@ -90,7 +90,13 @@ class Tile
   end
 
   def set_bomb
+    @mark = chars[:bomb]
     @bombed = true
+  end
+
+  def remove_bomb
+    @mark = chars[:hidden]
+    @bombed = false
   end
 
   def bombed?
@@ -180,6 +186,13 @@ class Board
      end
    end
 
+   def remove_bombs
+     @tiles.each_index do |i|
+       @tiles.each_index do |j|
+         @tiles[i][j].remove_bomb
+       end
+     end
+   end
 end
 
 class MineSweeper
@@ -188,6 +201,7 @@ class MineSweeper
     @board = Board.new
     @cursor = @board[[0,0]]
     @done = false
+    @first_move = true
   end
 
   def play
@@ -195,21 +209,12 @@ class MineSweeper
 
       @cursor.set_cursor
       @board.display
-      # move = get_character
-#       p move
-#       pos = []
-#       pos[0] = get_character
-#       pos[1] = get_character
-#       p pos
-#       # puts c
-#       # move, pos = get_user_input
-      #
-      # @board.display
       @cursor.unset_cursor
+
       move = $stdin.getch
-      # move, pos = get_user_input
-      update_space(move, @cursor)
+      update_space(move)
     end
+
     display_results(win?)
   end
 
@@ -224,10 +229,19 @@ class MineSweeper
     [move.upcase, coords.split(",").map(&:to_i)]
   end
 
-  def update_space(move, pos)
+  def update_space(move)
+    if move.upcase == "R"
+      if @first_move
+        while @cursor.bombed?
+          @board.remove_bombs
+          @board.generate_bombs
+        end
+      end
+      @cursor.reveal
+      @first_move = false
+    end
     @done = true if move.upcase == "Q"
     @cursor.toggle_flag if move.upcase == "F"
-    @cursor.reveal if move.upcase == "R"
 
     move_cursor(:up) if move.upcase == "W"
     move_cursor(:left) if move.upcase == "A"
@@ -247,7 +261,7 @@ class MineSweeper
       when :right
         [first, last + 1]
       end
-      # @board[[first,last]].unset_cursor
+
       @cursor = @board[target] if @cursor.on_board?(@board, target)
   end
 
